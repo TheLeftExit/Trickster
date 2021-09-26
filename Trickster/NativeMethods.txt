@@ -1,4 +1,4 @@
-﻿VirtualQueryEx
-OpenProcess
+﻿OpenProcess
 CloseHandle
 ReadProcessMemory
+VirtualQueryEx
