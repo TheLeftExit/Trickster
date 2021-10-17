@@ -8,6 +8,9 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Diagnostics;
+
+using static TheLeftExit.Memory.ObjectModel.ObjectModelExtensions;
 
 namespace TheLeftExit.Trickster {
     public partial class MainForm : Form {
@@ -21,42 +24,90 @@ namespace TheLeftExit.Trickster {
         }
         #endregion
 
-        private Process process;
-        private MemoryScanner scanner;
-        private ushort value;
-
         public MainForm() {
             InitializeComponent();
-            process = new Process((uint)System.Diagnostics.Process.GetProcessesByName("Growtopia").Single().Id);
-            scanner = new MemoryScanner(process);
+            OnProcessOpened(false);
         }
 
-        private unsafe bool IsValue(Span<byte> buffer) =>
-            Unsafe.Read<ushort>(Unsafe.AsPointer(ref buffer.GetPinnableReference())) == value;
+        private TypeScanner scanner;
+        private ulong? value;
 
-        private void button1_Click(object sender, EventArgs e) {
-            if(!ushort.TryParse(textBox1.Text, out value)) {
-                MessageBox.Show("Invalid value.");
-                return;
-            }
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            scanner.Scan(sizeof(ushort), IsValue);
-            sw.Stop();
+        private void OnProcessOpened(bool opened) {
+            openButton.Text = opened ? "Close" : "Open...";
+            openTextBox.Enabled = !opened;
+            statusLabel.Text = opened ? $"Process ID: {scanner.Process.Id}" : "Process ID: N/A";
+            getTypesButton.Enabled = opened;
+            getTypesComboBox.Enabled = false;
+            getTypesComboBox.Items.Clear();
+            value = null;
+            readButton.Enabled = opened;
+            scanButton.Enabled = false;
+            scanListBox.Enabled = false;
+            scanListBox.Items.Clear();
+        }
 
-            int resultCount = scanner.GetAddresses().Count();
-
-            label2.Text = $"Scan time: {sw.ElapsedMilliseconds} ms" + Environment.NewLine +
-                $"Results found: {resultCount}";
-
-            if (resultCount < 50) {
-                listBox1.Items.Clear();
-                listBox1.Items.AddRange(scanner.GetAddresses().Take(Math.Min(resultCount, 50)).Select(x => x.ToString("X")).ToArray());
+        private void openButtonClick(object sender, EventArgs e) {
+            if(scanner == null) {
+                Process[] result = Process.GetProcessesByName(openTextBox.Text);
+                switch (result.Length) {
+                    case 0:
+                        statusLabel.Text = "No processes found matching this name.";
+                        return;
+                    case 1:
+                        scanner = new TypeScanner(result[0]);
+                        OnProcessOpened(true);
+                        return;
+                    default:
+                        statusLabel.Text = "More than one process found matching this name.";
+                        return;
+                }
+            } else {
+                scanner?.Dispose();
+                scanner = null;
+                OnProcessOpened(false);
             }
         }
 
-        private void button2_Click(object sender, EventArgs e) {
-            scanner.Reset();
-            label2.Text = "Results reset!";
+        private void getTypesButtonClick(object sender, EventArgs e) {
+            statusLabel.Text = "Scanning for type information..."; Update();
+            scanner.InitTypes();
+            getTypesComboBox.Items.AddRange(scanner.Types.Select(x => $"{x.Offset:X} - {x.Names[0]}").ToArray());
+            getTypesComboBox.Enabled = true;
+            statusLabel.Text = $"Types found: {scanner.Types.Length}";
+        }
+
+        private void getTypesComboBoxSelectedIndexChanged(object sender, EventArgs e) {
+            if (!getTypesComboBox.Enabled) return;
+            value = ApplyOffset(scanner.MainModuleBaseAddress, scanner.Types[getTypesComboBox.SelectedIndex].Offset);
+            if (scanner.Regions != null)
+                scanButton.Enabled = true;
+        }
+
+        private void readButton_Click(object sender, EventArgs e) {
+            statusLabel.Text = $"Reading process memory..."; Update();
+            scanner.InitRegions();
+            scanner.ReadRegions();
+            statusLabel.Text = $"Regions read: {scanner.Regions.Where(x => x != null).Count()}";
+            if (value != null)
+                scanButton.Enabled = true;
+        }
+
+        private void scanButton_Click(object sender, EventArgs e) {
+            statusLabel.Text = "Scanning..."; Update();
+            ulong[] result = scanner.ScanRegions(value.Value);
+            statusLabel.Text = $"Structures found: {result.Length}";
+            scanListBox.Items.Clear();
+            foreach (ulong address in result)
+                scanListBox.Items.Add(address.ToString("X"));
+            scanListBox.Enabled = true;
+        }
+
+        private void scanListBoxMouseDown(object sender, MouseEventArgs e) {
+            string item = scanListBox.SelectedItem as string;
+            if (item != null && e.Button.HasFlag(MouseButtons.Right)) {
+                Clipboard.SetText(item);
+                statusLabel.Text = $"Address {item} copied to clipboard!";
+            }
         }
     }
 }

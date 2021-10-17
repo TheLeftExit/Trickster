@@ -1,4 +1,3 @@
-﻿OpenProcess
-CloseHandle
-ReadProcessMemory
-VirtualQueryEx
+﻿VirtualQueryEx
+IsWow64Process
+PROCESS_ACCESS_RIGHTS
