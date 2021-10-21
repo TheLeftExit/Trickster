@@ -26,16 +26,18 @@ namespace TheLeftExit.Trickster {
 
         public MainForm() {
             InitializeComponent();
-            OnProcessOpened(false);
+            OnProcessOpened();
         }
 
         private TypeScanner scanner;
         private ulong? value;
 
-        private void OnProcessOpened(bool opened) {
+        private void OnProcessOpened(string procName = null) {
+            bool opened = procName is not null;
             openButton.Text = opened ? "Close" : "Open...";
             openTextBox.Enabled = !opened;
-            statusLabel.Text = opened ? $"Process ID: {scanner.Process.Id}" : "Process ID: N/A";
+            openTextBox.Text = procName;
+            statusLabel.Text = opened ? $"Process: {procName} [{scanner.Process.Id}]" : "Type in the process ID or part of its name.";
             getTypesButton.Enabled = opened;
             getTypesComboBox.Enabled = false;
             getTypesComboBox.Items.Clear();
@@ -48,14 +50,22 @@ namespace TheLeftExit.Trickster {
 
         private void openButtonClick(object sender, EventArgs e) {
             if(scanner == null) {
-                Process[] result = Process.GetProcessesByName(openTextBox.Text);
+                if (int.TryParse(openTextBox.Text, out int processId)) {
+                    try {
+                        Process processById = Process.GetProcessById(processId);
+                        scanner = new TypeScanner(processById);
+                        OnProcessOpened(processById.ProcessName);
+                        return;
+                    } catch (ArgumentException) { }
+                }
+                Process[] result = Process.GetProcesses().Where(x => x.ProcessName.ToLower().Contains(openTextBox.Text.ToLower())).ToArray();
                 switch (result.Length) {
                     case 0:
-                        statusLabel.Text = "No processes found matching this name.";
+                        statusLabel.Text = "No processes found matching this ID or name.";
                         return;
                     case 1:
                         scanner = new TypeScanner(result[0]);
-                        OnProcessOpened(true);
+                        OnProcessOpened(result[0].ProcessName);
                         return;
                     default:
                         statusLabel.Text = "More than one process found matching this name.";
@@ -64,7 +74,7 @@ namespace TheLeftExit.Trickster {
             } else {
                 scanner?.Dispose();
                 scanner = null;
-                OnProcessOpened(false);
+                OnProcessOpened();
             }
         }
 
@@ -108,6 +118,11 @@ namespace TheLeftExit.Trickster {
                 Clipboard.SetText(item);
                 statusLabel.Text = $"Address {item} copied to clipboard!";
             }
+        }
+
+        private void openTextBox_KeyDown(object sender, KeyEventArgs e) {
+            if (e.KeyData == Keys.Enter)
+                openButton.PerformClick();
         }
     }
 }

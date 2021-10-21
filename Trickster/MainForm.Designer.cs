@@ -121,6 +121,7 @@ namespace TheLeftExit.Trickster {
             this.openTextBox.Name = "openTextBox";
             this.openTextBox.Size = new System.Drawing.Size(281, 23);
             this.openTextBox.TabIndex = 6;
+            this.openTextBox.KeyDown += new System.Windows.Forms.KeyEventHandler(this.openTextBox_KeyDown);
             // 
             // openLabel
             // 
