@@ -81,7 +81,7 @@ namespace TheLeftExit.Trickster {
         private void getTypesButtonClick(object sender, EventArgs e) {
             statusLabel.Text = "Scanning for type information..."; Update();
             scanner.InitTypes();
-            getTypesComboBox.Items.AddRange(scanner.Types.Select(x => $"{x.Offset:X} - {x.Names[0]}").ToArray());
+            getTypesComboBox.Items.AddRange(scanner.Types.Select(x => $"{x.Names[0]} - {x.Offset:X}").ToArray());
             getTypesComboBox.Enabled = true;
             statusLabel.Text = $"Types found: {scanner.Types.Length}";
         }
