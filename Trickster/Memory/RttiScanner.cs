@@ -24,7 +24,7 @@ namespace TheLeftExit.Trickster.Memory {
         }
 
         public unsafe bool TryRead(ulong address, int count, void* buffer) {
-            if (address >= _baseAddress && address + (uint)count < _baseAddress + _size) {
+            if (address >= _baseAddress && address + (uint)count < _baseAddress + _size && (ulong.MaxValue - (uint)count > address)) {
                 void* sourceAddress = _pointer + (address - _baseAddress);
                 Unsafe.CopyBlock(buffer, sourceAddress, (uint)count);
                 return true;
